@@ -3,28 +3,151 @@
 <head>
   <meta charset="UTF-8">
   <title>Campanhas de Doação</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding-top: 60px; /* espaço para o menu fixo */
+    }
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: #333;
+      color: white;
+      padding: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    nav a {
+      color: white;
+      margin: 0 10px;
+      text-decoration: none;
+    }
+    nav a:hover {
+      text-decoration: underline;
+    }
+    #campaigns div {
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin: 10px;
+      border-radius: 6px;
+    }
+    button {
+      margin: 5px;
+    }
+  </style>
 </head>
 <body>
+  <!-- 🔹 Menu fixo -->
+  <nav>
+    <div>
+      <a href="index.html">Campanhas</a>
+      <a href="campaign_form.html">Nova Campanha</a>
+    </div>
+    <div id="userMenu">
+      <a href="login.html">Login</a>
+      <a href="register.html">Registrar</a>
+    </div>
+  </nav>
+
   <h1>Campanhas</h1>
   <div id="campaigns"></div>
+  <div id="pagination"></div>
 
   <script>
-    async function loadCampaigns() {
-      const res = await fetch("http://127.0.0.1:5000/api/campaigns/");
-      const data = await res.json();
-      const container = document.getElementById("campaigns");
+    let page = 1;
+    const per_page = 5;
 
-      data.forEach(c => {
+    // 🔹 Carregar campanhas
+    async function loadCampaigns() {
+      const res = await fetch(`http://127.0.0.1:5000/api/campaigns/?page=${page}&per_page=${per_page}`);
+      const data = await res.json();
+
+      const container = document.getElementById("campaigns");
+      container.innerHTML = "";
+
+      data.items.forEach(c => {
         const div = document.createElement("div");
         div.innerHTML = `
           <h3>${c.title}</h3>
           <p>${c.description}</p>
-          <p>Meta: ${c.goal_amount} | Arrecadado: ${c.collected_amount}</p>
+          <p>Meta: R$${c.goal_amount} | Arrecadado: R$${c.collected_amount}</p>
           <a href="campaign.html?id=${c.id}">Ver detalhes</a>
         `;
+
+        // 🔹 Se usuário for dono, mostrar ações
+        const token = localStorage.getItem("token");
+        if (token && c.owner_id === parseJwt(token).sub) {
+          div.innerHTML += `
+            <a href="campaign_form.html?id=${c.id}">Editar</a>
+            <button onclick="deleteCampaign(${c.id})">Excluir</button>
+          `;
+        }
+
         container.appendChild(div);
       });
+
+      // 🔹 Paginação
+      const pagination = document.getElementById("pagination");
+      pagination.innerHTML = `
+        <button onclick="prevPage()" ${page === 1 ? "disabled" : ""}>Anterior</button>
+        <button onclick="nextPage()">Próxima</button>
+      `;
     }
+
+    function prevPage() { if (page > 1) { page--; loadCampaigns(); } }
+    function nextPage() { page++; loadCampaigns(); }
+
+    // 🔹 Excluir campanha
+    async function deleteCampaign(id) {
+      if (!confirm("Tem certeza que deseja excluir esta campanha?")) return;
+      const token = localStorage.getItem("token");
+      const res = await fetch(`http://127.0.0.1:5000/api/campaigns/${id}`, {
+        method: "DELETE",
+        headers: { "Authorization": "Bearer " + token }
+      });
+      const data = await res.json();
+      alert(data.msg || data.error);
+      loadCampaigns();
+    }
+
+    // 🔹 Decodificar JWT para pegar user_id
+    function parseJwt(token) {
+      try {
+        return JSON.parse(atob(token.split('.')[1]));
+      } catch (e) {
+        return null;
+      }
+    }
+
+    // 🔹 Atualizar menu (login/logout)
+    function updateMenu() {
+      const token = localStorage.getItem("token");
+      const userMenu = document.getElementById("userMenu");
+
+      if (token) {
+        userMenu.innerHTML = `
+          <a href="#" onclick="logout()">Logout</a>
+        `;
+      } else {
+        userMenu.innerHTML = `
+          <a href="login.html">Login</a>
+          <a href="register.html">Registrar</a>
+        `;
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem("token");
+      alert("Logout realizado!");
+      updateMenu();
+      loadCampaigns();
+    }
+
+    updateMenu();
     loadCampaigns();
   </script>
 </body>
