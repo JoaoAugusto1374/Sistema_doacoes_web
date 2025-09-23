@@ -24,6 +24,7 @@ class Campaign(db.Model):
     collected_amount = db.Column(db.Numeric(12,2), default=0)
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
 
 class Donation(db.Model):
     id = db.Column(db.Integer, primary_key=True)
