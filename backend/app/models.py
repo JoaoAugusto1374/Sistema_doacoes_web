@@ -27,7 +27,11 @@ class Campaign(db.Model):
 
 class Donation(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    campaign_id = db.Column(db.Integer, db.ForeignKey("campaign.id"), nullable=False)
-    donor_name = db.Column(db.String(255))
-    amount = db.Column(db.Numeric(12,2), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    campaign_id = db.Column(db.Integer, db.ForeignKey("campaign.id"), nullable=False)
+
+    user = db.relationship("User", backref="donations")
+    campaign = db.relationship("Campaign", backref="donations")
