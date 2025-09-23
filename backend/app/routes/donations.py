@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from decimal import Decimal
 from ..extensions import db
 from ..models import Donation, Campaign
 
@@ -13,7 +14,7 @@ def donate():
     user_id = get_jwt_identity()
 
     campaign = Campaign.query.get_or_404(data.get("campaign_id"))
-    amount = float(data.get("amount", 0))
+    amount = Decimal(str(data.get("amount", 0)))  # 🔹 Corrigido: converter para Decimal
 
     if amount <= 0:
         return jsonify({"error": "Valor inválido"}), 400
@@ -21,7 +22,7 @@ def donate():
     try:
         # Transação: registrar doação e atualizar campanha
         donation = Donation(user_id=user_id, campaign_id=campaign.id, amount=amount)
-        campaign.collected_amount += amount
+        campaign.collected_amount += amount  # ✅ Soma Decimal + Decimal
 
         db.session.add(donation)
         db.session.commit()
