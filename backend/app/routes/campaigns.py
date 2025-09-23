@@ -1,7 +1,8 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..extensions import db
-from ..models import Campaign, User
+from ..models import Campaign, User, Donation
+from flask_cors import cross_origin
 
 campaigns_bp = Blueprint("campaigns", __name__)
 
@@ -53,6 +54,7 @@ def get_campaign(campaign_id):
     campaign = Campaign.query.get_or_404(campaign_id)
     return jsonify({
         "id": campaign.id,
+        "owner_id": campaign.owner_id,
         "title": campaign.title,
         "description": campaign.description,
         "goal_amount": str(campaign.goal_amount),
@@ -65,7 +67,7 @@ def get_campaign(campaign_id):
 @campaigns_bp.route("/<int:campaign_id>", methods=["PUT"])
 @jwt_required()
 def update_campaign(campaign_id):
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     campaign = Campaign.query.get_or_404(campaign_id)
 
     if campaign.owner_id != user_id:
@@ -82,12 +84,15 @@ def update_campaign(campaign_id):
 # 📌 Deletar campanha (apenas dono)
 @campaigns_bp.route("/<int:campaign_id>", methods=["DELETE"])
 @jwt_required()
+@cross_origin(origins="http://127.0.0.1:8000", supports_credentials=True)
 def delete_campaign(campaign_id):
     user_id = get_jwt_identity()
     campaign = Campaign.query.get_or_404(campaign_id)
 
-    if campaign.owner_id != user_id:
+    if campaign.owner_id != int(user_id):
         return jsonify({"error": "Você não tem permissão para excluir esta campanha"}), 403
+
+    Donation.query.filter_by(campaign_id=campaign.id).delete()
 
     db.session.delete(campaign)
     db.session.commit()
