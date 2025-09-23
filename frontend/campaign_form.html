@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Nova Campanha</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding-top: 60px; }
+    nav { position: fixed; top: 0; left: 0; right: 0; background: #333; color: white; padding: 10px; display: flex; justify-content: space-between; align-items: center; }
+    nav a { color: white; margin: 0 10px; text-decoration: none; }
+    nav a:hover { text-decoration: underline; }
+    main { padding: 20px; }
+    form { max-width: 400px; margin: auto; display: flex; flex-direction: column; }
+    input, textarea { padding: 8px; margin: 8px 0; border: 1px solid #ccc; border-radius: 4px; }
+    button { padding: 10px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    button:hover { background: #218838; }
+  </style>
+</head>
+<body>
+  <nav>
+    <div>
+      <a href="index.html">Campanhas</a>
+      <a href="campaign_form.html">Nova Campanha</a>
+    </div>
+    <div id="userMenu"></div>
+  </nav>
+
+  <main>
+    <h1 id="formTitle">Criar Campanha</h1>
+    <form id="campaignForm">
+      <input type="text" id="title" placeholder="Título" required />
+      <textarea id="description" placeholder="Descrição" required></textarea>
+      <input type="number" id="goal_amount" placeholder="Meta (R$)" required min="1" />
+      <button type="submit">Salvar</button>
+    </form>
+  </main>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const campaignId = params.get("id");
+    const token = localStorage.getItem("token");
+
+    // Atualizar título se for edição
+    if (campaignId) {
+      document.getElementById("formTitle").textContent = "Editar Campanha";
+      loadCampaignData();
+    }
+
+    async function loadCampaignData() {
+      try {
+        const res = await fetch(`http://127.0.0.1:5000/api/campaigns/${campaignId}`, {
+          headers: token ? { "Authorization": "Bearer " + token } : {}
+        });
+        if (!res.ok) throw new Error("Falha ao carregar campanha");
+        const c = await res.json();
+        document.getElementById("title").value = c.title;
+        document.getElementById("description").value = c.description;
+        document.getElementById("goal_amount").value = parseFloat(c.goal_amount);
+      } catch (err) {
+        console.error(err);
+        alert("Erro ao carregar dados da campanha.");
+      }
+    }
+
+    document.getElementById("campaignForm").addEventListener("submit", async e => {
+      e.preventDefault();
+      if (!token) { alert("Você precisa estar logado."); return; }
+
+      const payload = {
+        title: document.getElementById("title").value,
+        description: document.getElementById("description").value,
+        goal_amount: parseFloat(document.getElementById("goal_amount").value)
+      };
+
+      const url = campaignId 
+        ? `http://127.0.0.1:5000/api/campaigns/${campaignId}`
+        : `http://127.0.0.1:5000/api/campaigns/`;
+      const method = campaignId ? "PUT" : "POST";
+
+      try {
+        const res = await fetch(url, {
+          method: method,
+          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (res.ok) {
+          alert("Campanha salva com sucesso!");
+          window.location.href = "index.html";
+        } else {
+          alert(data.error || "Erro ao salvar campanha.");
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Erro de conexão com o servidor. Verifique backend e CORS.");
+      }
+    });
+
+    // Menu login/logout
+    function updateMenu() {
+      const userMenu = document.getElementById("userMenu");
+      if (token) {
+        userMenu.innerHTML = `<a href="#" onclick="logout()">Logout</a>`;
+      } else {
+        userMenu.innerHTML = `<a href="login.html">Login</a> <a href="register.html">Registrar</a>`;
+      }
+    }
+    function logout() { localStorage.removeItem("token"); updateMenu(); }
+    updateMenu();
+  </script>
+</body>
+</html>
