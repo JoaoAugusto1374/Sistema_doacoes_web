@@ -2,51 +2,201 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Campanha</title>
+  <title>Detalhes da Campanha</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding-top: 60px;
+    }
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: #333;
+      color: white;
+      padding: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    nav a {
+      color: white;
+      margin: 0 10px;
+      text-decoration: none;
+    }
+    nav a:hover {
+      text-decoration: underline;
+    }
+    #campaign {
+      padding: 20px;
+      border: 1px solid #ccc;
+      margin: 20px;
+      border-radius: 6px;
+    }
+    form {
+      margin-top: 20px;
+    }
+    input {
+      padding: 6px;
+      margin: 5px 0;
+    }
+    button {
+      padding: 6px 12px;
+      margin-top: 10px;
+    }
+  </style>
 </head>
 <body>
+  <nav>
+    <div>
+      <a href="index.html">Campanhas</a>
+      <a href="campaign_form.html">Nova Campanha</a>
+    </div>
+    <div id="userMenu">
+      <a href="login.html">Login</a>
+      <a href="register.html">Registrar</a>
+    </div>
+  </nav>
+
+  <h1>Detalhes da Campanha</h1>
   <div id="campaign"></div>
 
-  <h3>Fazer Doação</h3>
+  <h2>Fazer uma doação</h2>
   <form id="donationForm">
-    <input type="number" id="amount" placeholder="Valor da doação" required>
+    <input type="number" id="amount" placeholder="Valor da doação (R$)" required min="1" />
     <button type="submit">Doar</button>
   </form>
 
-  <script>
-    const urlParams = new URLSearchParams(window.location.search);
-    const id = urlParams.get("id");
+  <h2>Doações</h2>
+  <div id="donations"></div>
 
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const campaignId = params.get("id");
+
+    // 🔹 Carregar detalhes da campanha
     async function loadCampaign() {
-      const res = await fetch(`http://127.0.0.1:5000/api/campaigns/${id}`);
+      const res = await fetch(`http://127.0.0.1:5000/api/campaigns/${campaignId}`);
       const c = await res.json();
-      document.getElementById("campaign").innerHTML = `
-        <h2>${c.title}</h2>
+
+      const container = document.getElementById("campaign");
+      container.innerHTML = `
+        <h3>${c.title}</h3>
         <p>${c.description}</p>
-        <p>Meta: ${c.goal_amount} | Arrecadado: ${c.collected_amount}</p>
+        <p>Meta: R$${c.goal_amount} | Arrecadado: R$${c.collected_amount}</p>
       `;
+
+      const token = localStorage.getItem("token");
+      if (token && c.owner_id === Number(parseJwt(token).sub)) {
+        container.innerHTML += `
+          <a href="campaign_form.html?id=${c.id}">Editar</a>
+          <button onclick="deleteCampaign(${c.id})">Excluir</button>
+        `;
+      }
     }
 
-    document.getElementById("donationForm").addEventListener("submit", async (e) => {
+    // 🔹 Fazer doação
+    document.getElementById("donationForm").addEventListener("submit", async e => {
       e.preventDefault();
-      const amount = document.getElementById("amount").value;
+      const amount = Number(document.getElementById("amount").value);
+      const token = localStorage.getItem("token");
 
-      const token = localStorage.getItem("token"); // precisa estar logado
-      const res = await fetch("http://127.0.0.1:5000/api/donations/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer " + token
-        },
-        body: JSON.stringify({ campaign_id: id, amount })
-      });
+      if (!token) {
+        alert("Você precisa estar logado para doar.");
+        return;
+      }
 
-      const data = await res.json();
-      alert(data.msg || data.error);
-      loadCampaign(); // recarrega dados
+      try {
+        const res = await fetch(`http://127.0.0.1:5000/api/donations/`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + token
+          },
+          body: JSON.stringify({ campaign_id: parseInt(campaignId), amount: parseFloat(amount) })
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          alert(err.error || "Erro desconhecido");
+          return;
+        }
+
+        const data = await res.json();
+        alert(data.msg);
+        document.getElementById("donationForm").reset();
+        loadCampaign();
+        loadDonations();
+      } catch (err) {
+        alert("Erro ao conectar com o servidor.");
+      }
     });
 
+    // 🔹 Listar doações
+    async function loadDonations() {
+      const res = await fetch(`http://127.0.0.1:5000/api/donations/campaign/${campaignId}`);
+      const donations = await res.json();
+
+      const container = document.getElementById("donations");
+      container.innerHTML = "";
+
+      donations.forEach(d => {
+        const div = document.createElement("div");
+        div.textContent = `Doação de R$${d.amount} por ${d.user} em ${new Date(d.created_at).toLocaleString()}`;
+        container.appendChild(div);
+      });
+    }
+
+    // 🔹 Excluir campanha
+    async function deleteCampaign(id) {
+      if (!confirm("Tem certeza que deseja excluir esta campanha?")) return;
+      const token = localStorage.getItem("token");
+      const res = await fetch(`http://127.0.0.1:5000/api/campaigns/${id}`, {
+        method: "DELETE",
+        headers: { "Authorization": "Bearer " + token }
+      });
+      const data = await res.json();
+      alert(data.msg || data.error);
+      window.location.href = "index.html";
+    }
+
+    // 🔹 Decodificar JWT
+    function parseJwt(token) {
+      try {
+        return JSON.parse(atob(token.split('.')[1]));
+      } catch (e) {
+        return null;
+      }
+    }
+
+    // 🔹 Menu login/logout
+    function updateMenu() {
+      const token = localStorage.getItem("token");
+      const userMenu = document.getElementById("userMenu");
+
+      if (token) {
+        userMenu.innerHTML = `<a href="#" onclick="logout()">Logout</a>`;
+      } else {
+        userMenu.innerHTML = `
+          <a href="login.html">Login</a>
+          <a href="register.html">Registrar</a>
+        `;
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem("token");
+      alert("Logout realizado!");
+      updateMenu();
+      loadCampaign();
+      loadDonations();
+    }
+
+    updateMenu();
     loadCampaign();
+    loadDonations();
   </script>
 </body>
 </html>
