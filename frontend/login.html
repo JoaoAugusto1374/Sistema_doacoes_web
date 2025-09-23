@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Login</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding-top: 60px; }
+    nav {
+      position: fixed; top: 0; left: 0; right: 0;
+      background: #333; color: white; padding: 10px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    nav a { color: white; margin: 0 10px; text-decoration: none; }
+    nav a:hover { text-decoration: underline; }
+    main { padding: 20px; }
+    form {
+      max-width: 400px; margin: auto;
+      display: flex; flex-direction: column;
+    }
+    input {
+      padding: 8px; margin: 8px 0; border: 1px solid #ccc; border-radius: 4px;
+    }
+    button {
+      padding: 10px; background: #007bff; color: white;
+      border: none; border-radius: 4px; cursor: pointer;
+    }
+    button:hover { background: #0069d9; }
+  </style>
+</head>
+<body>
+  <!-- 🔹 Menu fixo -->
+  <nav>
+    <div>
+      <a href="index.html">Campanhas</a>
+      <a href="campaign_form.html">Nova Campanha</a>
+    </div>
+    <div id="userMenu">
+      <a href="login.html">Login</a>
+      <a href="register.html">Registrar</a>
+    </div>
+  </nav>
+
+  <main>
+    <h1>Login</h1>
+    <form id="loginForm">
+      <input type="email" id="email" placeholder="E-mail" required />
+      <input type="password" id="password" placeholder="Senha" required />
+      <button type="submit">Entrar</button>
+    </form>
+  </main>
+
+  <script>
+    // 🔹 Atualiza menu conforme token
+    function updateMenu() {
+      const token = localStorage.getItem("token");
+      const userMenu = document.getElementById("userMenu");
+      if (token) {
+        userMenu.innerHTML = `<a href="#" onclick="logout()">Logout</a>`;
+      } else {
+        userMenu.innerHTML = `<a href="login.html">Login</a><a href="register.html">Registrar</a>`;
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem("token");
+      alert("Logout realizado!");
+      updateMenu();
+    }
+
+    updateMenu();
+
+    // 🔹 Login
+    document.getElementById("loginForm").addEventListener("submit", async e => {
+      e.preventDefault();
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+
+      const res = await fetch("http://127.0.0.1:5000/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await res.json();
+      console.log("Resposta do login:", data); // debug
+
+      if (res.ok && data.access_token) {
+        localStorage.setItem("token", data.access_token);
+        alert("Login realizado com sucesso!");
+        updateMenu();
+        window.location.href = "index.html";
+      } else {
+        alert(data.error || "Falha no login.");
+      }
+    });
+  </script>
+</body>
+</html>
