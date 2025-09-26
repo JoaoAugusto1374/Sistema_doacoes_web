@@ -46,3 +46,23 @@ def list_donations(campaign_id):
         for d in campaign.donations
     ]
     return jsonify(donations)
+
+@donations_bp.route('/api/fake-donations', methods=['POST'])
+def fake_donation():
+    data = request.json or {}
+
+    campaign_id = data.get("campaign_id", 1)
+    user_id = data.get("user_id", 1)
+    amount = data.get("amount", 50)
+
+    fake_response = {
+        "id": 9999,
+        "campaign_id": campaign_id,
+        "user_id": user_id,
+        "amount": amount,
+        "created_at": datetime.datetime.utcnow().isoformat(),
+        "status": "success",
+        "message": "Doação simulada com sucesso (fake)."
+    }
+
+    return jsonify(fake_response), 201
